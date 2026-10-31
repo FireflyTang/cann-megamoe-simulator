@@ -1,5 +1,8 @@
 # MegaMoE npusim common simulation capability
 
+> Canonical path on the user’s Mac: `/Volumes/tang-home/sources/common/megamoe-sim`.
+> Equivalent path in this Linux work environment: `/home/t00826093/sources/common/megamoe-sim`.
+
 This repository is the common, version-controlled entry for the current MegaMoE
 offline npusim workflow.  It contains the executable scripts used to:
 
