@@ -188,6 +188,14 @@ Do not report success until all of these pass:
 7. `status.json` is `passed`,
 8. if requested, `trace_with_traffic.json` and `trace_organized.json` parse.
 
+## 10. Continuous improvement
+
+During use, any defect or capability gap that belongs to this common simulation
+capability must be fixed directly in this repository and in the corresponding
+skill.  Record the issue, the affected workflow stage, and the corrected
+process before the next run.  Do not leave a discovered gap only in chat history
+or in a private run directory.
+
 ## 9. Versioning
 
 This repository should be committed after every meaningful change.  A run’s
