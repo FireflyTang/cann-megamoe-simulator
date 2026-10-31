@@ -26,6 +26,7 @@ def digest(path: Path) -> str:
 
 def selected_files(run: Path, include_raw: bool) -> list[Path]:
     files: set[Path] = set()
+    root = run.parent
     exact = (
         "config.json",
         "status.json",
@@ -42,6 +43,21 @@ def selected_files(run: Path, include_raw: bool) -> list[Path]:
         for pattern in ("data/raw/capture/*/record/*.db",
                         "data/raw/capture/*/record/*instr.bin"):
             files.update(path for path in run.glob(pattern) if path.is_file())
+    # Build outputs and evidence live beside the run directory.
+    for pattern in (
+        "device/build_evidence.json",
+        "device/profiler_build_contract.json",
+        "device/build_transaction.json",
+        "device/bin/*.o",
+        "device/bin/*.json",
+        "device/generated/*",
+        "host/build_evidence.json",
+        "host/build_transaction.json",
+        "host/libmegamoe_host.so",
+        "host/recipe.json",
+        "cmake/compile_commands.json",
+    ):
+        files.update(path for path in root.glob(pattern) if path.is_file())
     return sorted(files)
 
 
@@ -68,8 +84,9 @@ def main() -> None:
         raise RuntimeError("No reproduction files found")
 
     members = {}
+    root = run.parent
     for path in files:
-        members[str(path.relative_to(run))] = {
+        members[str(path.relative_to(root))] = {
             "bytes": path.stat().st_size,
             "sha256": digest(path),
         }
@@ -77,7 +94,7 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(output, "w:gz", compresslevel=args.compress_level) as archive:
         for path in files:
-            archive.add(path, arcname=str(path.relative_to(run)), recursive=False)
+            archive.add(path, arcname=str(path.relative_to(root)), recursive=False)
 
     manifest = {
         "schema": "megamoe_npusim_reproduce_pack_v1",

@@ -171,9 +171,10 @@ separate.  Aggregate rank-total lanes are removed.
 
 The archive is written to `<run>/run/reproduce.tar.gz` and a manifest to
 `<run>/run/reproduce_manifest.json`.  The final trace JSONs remain uncompressed
-outside the archive.  Raw SQLite and instruction records are included by
-default; use `--exclude-raw` only when a caller explicitly does not need
-offline re-export.
+outside the archive.  The archive also retains the kernel ELF, host bridge,
+generated profiler headers and build evidence needed for offline re-export.
+Raw SQLite and instruction records are included by default; use
+`--exclude-raw` only when a caller explicitly does not need offline re-export.
 
 ## Acceptance
 
