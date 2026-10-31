@@ -21,6 +21,18 @@ validated for the MTE/UBMEM topology (`topoType == TOPO_TYPE_MTE`).  A URMA
 topology needs a separate adapter or explicit “unavailable” handling.
 
 ## Repository layout
+## Skill
+
+The installed Codex skill is stored in this repository under:
+
+```text
+skills/megamoe-remote-sim/
+```
+
+The local Codex skill entry should be a symlink to that directory.  This keeps
+the skill, scripts and documentation versioned together and makes the whole
+repository publishable as one Git project.
+
 
 ```text
 scripts/
