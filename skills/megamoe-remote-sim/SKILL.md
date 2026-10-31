@@ -7,7 +7,7 @@ description: MegaMoE 950PR multi-P npusim simulation workflow, from SIM DFX inst
 
 ## 1. Authority and scope
 
-Current common-repository baseline: `f38d7f8`.
+Current common-repository baseline: this repository’s HEAD.
 
 The authoritative implementation and detailed workflow live in:
 
