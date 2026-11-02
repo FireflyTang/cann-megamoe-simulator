@@ -39,6 +39,11 @@ def main():
     names = {index: name for index, name in enumerate(stage_order)}
     mapping = dfx.static_mark_map(args.kernel)
     entries = dfx.elf_mixed_entries(args.kernel, tiling_key)
+    if not mapping:
+        raise RuntimeError(
+            "Static DFX marker map is empty; the selected llvm-objdump cannot decode "
+            "DFX_REGION.MTE2. Set MEGAMOE_LLVM_OBJDUMP to a compatible local objdump."
+        )
     stages = []
     marks = {}
     for rank in range(config["case"]["ep"]):

@@ -68,12 +68,7 @@ def main():
             stream.close()
     if not counts:
         raise ValueError("No records selected")
-    command = [
-        "msprof", "op", "simulator", "--export", str(dump), "--output", str(out / "output"),
-        f"--soc-version={args.soc_version}", "--aic-metrics=PipeUtilization",
-    ]
-    if wanted is not None:
-        command.append("--core-id=" + args.core_id)
+    command = build_command(dump, out / "output", args.soc_version, args.core_id, wanted is not None)
     with (out / "export.log").open("w") as log:
         result = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT,
                                 timeout=args.timeout or None)
@@ -91,6 +86,17 @@ def main():
     if not any(event.get("ph") == "X" for event in data.get("traceEvents", [])):
         raise RuntimeError("Native report contains no duration events")
     print(reports[0])
+
+
+def build_command(dump, output, soc_version, core_id, explicit_core):
+    command = [
+        "msprof", "op", "simulator",
+        f"--export={dump}", f"--output={output}",
+        f"--soc-version={soc_version}", "--aic-metrics=PipeUtilization",
+    ]
+    if explicit_core:
+        command.append(f"--core-id={core_id}")
+    return command
 
 
 if __name__ == "__main__":

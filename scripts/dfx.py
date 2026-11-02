@@ -7,11 +7,6 @@ import sqlite3
 import struct
 import subprocess
 
-LLVM_OBJDUMP_CANDIDATES = [
-    os.path.join(os.environ.get("ASCEND_HOME_PATH", ""), "tools/bisheng_compiler/bin/llvm-objdump"),
-    os.path.expanduser("~/Ascend/9.2.0-weekly.20260902.01/cann-9.2.0/tools/bisheng_compiler/bin/llvm-objdump"),
-    "llvm-objdump",
-]
 DISASM_RE = re.compile(r"^\s*([0-9a-f]+):\s+[0-9a-f]+\s+(\S+)\s*(.*)$")
 MOVI_RE = re.compile(r"^MOVI\s+X(\d+),\s*#(\d+)")
 DFX_RE = re.compile(r"^DFX_REGION[\w.]*\s+X(\d+)")
@@ -21,7 +16,13 @@ AIV_SIM_LOAD_BASE = 0x100000
 
 
 def find_llvm_objdump():
-    for candidate in LLVM_OBJDUMP_CANDIDATES:
+    candidates = [
+        os.environ.get("MEGAMOE_LLVM_OBJDUMP", ""),
+        os.path.join(os.environ.get("ASCEND_HOME_PATH", ""), "tools/bisheng_compiler/bin/llvm-objdump"),
+        os.path.expanduser("~/Ascend/9.2.0-weekly.20260902.01/cann-9.2.0/tools/bisheng_compiler/bin/llvm-objdump"),
+        "llvm-objdump",
+    ]
+    for candidate in candidates:
         if candidate and (os.path.isfile(candidate) or shutil_which(candidate)):
             return candidate
     raise RuntimeError("llvm-objdump not found; source the CANN environment")

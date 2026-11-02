@@ -149,6 +149,12 @@ If only the Python wrapper was interrupted and the simulator completed, use
 
 ### 3.5 Export and merge the trace
 
+`report.py` needs a local `llvm-objdump` that can decode `DFX_REGION.MTE2`.
+Some beta CANN builds print `<not available>` for these instructions and make
+the static DFX map empty. If that happens, do not use remote execution as a
+workaround; copy a compatible local objdump from the same weekly CANN build and
+export `MEGAMOE_LLVM_OBJDUMP=<path>` before running `report.py`.
+
 ```bash
 source /path/to/cann/set_env.sh
 /path/to/tang/python scripts/report.py \
