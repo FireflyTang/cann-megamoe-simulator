@@ -13,7 +13,7 @@ Before using this workflow, the MegaMoE source tree must already contain:
 3. compiler barriers around the marker calls so different stage markers cannot
    be tail-merged,
 4. a generated `profile_events_generated.h` with compact DFX IDs,
-5. a device build mode that sets `MEGAMOE_SIM_DFX=1`,
+5. a device build mode that sets `MEGAMOE_PROFILE_BACKEND=1`,
 6. a host bridge that can produce tiling metadata for case generation.
 
 The current DFX mapping is:
@@ -28,7 +28,7 @@ The current DFX mapping is:
 
 Dynamic `DISPATCH_LOCAL` / `DISPATCH_XFER` and
 `DISPATCH_DEDUP_LOCAL` / `DISPATCH_DEDUP_XFER` sites must remain explicit
-stage calls under `MEGAMOE_SIM_DFX`.
+stage calls under `MEGAMOE_PROFILE_BACKEND=1`.
 
 ## 1. Build
 

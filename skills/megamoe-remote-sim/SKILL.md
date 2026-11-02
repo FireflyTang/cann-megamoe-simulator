@@ -46,6 +46,9 @@ The detailed operating contract is:
 - **Source checkout, instrumentation edits, case generation, device build and host
   build are local-only.**  Never compile on model1.  The remote machine receives
   a prepared case/run and executes `simulate.py` only.
+- `MEGAMOE_PROFILE_BACKEND=1` selects the SIM DFX profiling backend; `0`
+  selects the BOARD ring-buffer backend.  Build evidence must prove the exact
+  backend flag used by the generated compiler recipe.
 - One CANN environment should run only one simulation process at a time.
 
 ## 3. Workflow
@@ -88,6 +91,10 @@ integer macro, for example:
 If the source tree does not contain `third_party/cann-cmake`, add
 `--cann-cmake <local-cann-cmake-checkout>`; a missing dependency is rejected
 before CMake configure.
+
+The kernel-facing contract is `MOE_PROFILE_BEGIN` / `MOE_PROFILE_END`; the
+backend macro is owned by the build tool and must not be passed manually with
+`--kernel-definition`.
 
 ### 3.2 Build the host bridge
 

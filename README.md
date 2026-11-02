@@ -86,7 +86,7 @@ another mode or attempt.
 
 `--mode sim` keeps the existing MegaMoE stage IDs and maps the profile macros
 to DFX `TRACE_START/TRACE_STOP`.  The compiler guard verifies that
-`MEGAMOE_SIM_DFX=1` is actually present in the generated recipe.
+`MEGAMOE_PROFILE_BACKEND=1` is actually present in the generated recipe.
 
 ### 2. Build the host bridge
 

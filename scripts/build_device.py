@@ -47,7 +47,7 @@ def kernel_definitions(values):
         if not re.fullmatch(r'[A-Z][A-Z0-9_]*=-?(?:0|[1-9][0-9]*)', value):
             raise ValueError('Kernel definition must be NAME=integer')
         name, number = value.split('=', 1)
-        tool_owned = (name in ('MEGAMOE_PROFILE_DETAIL', 'MEGAMOE_PROFILE_ABI', 'MEGAMOE_SIM_DFX',
+        tool_owned = (name in ('MEGAMOE_PROFILE_DETAIL', 'MEGAMOE_PROFILE_ABI', 'MEGAMOE_PROFILE_BACKEND',
                                'ENABLE_PROFILING') or
                       name.startswith(('PROF_', 'PROFILE_', 'TILINGKEY_')))
         if name in result or tool_owned:

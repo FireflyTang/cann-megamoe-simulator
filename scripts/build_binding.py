@@ -43,12 +43,6 @@ def begin(recipe, generated, attempt, mode, precision, writer):
         require(flags.count('-DENABLE_PROFILING=1') == 1 and
                 flags.count('-DMEGAMOE_PROFILE_DETAIL='+str(detail)) == 1,
                 'Actual generated recipe does not enable requested instrumentation')
-        if mode == 'sim':
-            require(flags.count('-DMEGAMOE_SIM_DFX=1') == 1,
-                    'SIM recipe must explicitly enable the DFX mapping')
-        else:
-            require(not any(x.startswith('-DMEGAMOE_SIM_DFX') for x in flags),
-                    'Non-SIM recipe must not enable the DFX mapping')
     require(not any(x.startswith('-include') for x in flags),
             'Ambiguous forced include or profiling undefine')
     # Exact compiled config is forced first. Its pragma once makes later inclusion
@@ -58,8 +52,8 @@ def begin(recipe, generated, attempt, mode, precision, writer):
         ('#ifdef ENABLE_PROFILING\n#error profiling_must_be_undefined\n#endif\n' if mode=='off' else '#if !defined(ENABLE_PROFILING) || ENABLE_PROFILING != 1\n#error profiling_disabled\n#endif\n') +
         '#if !defined(MEGAMOE_PROFILE_DETAIL) || MEGAMOE_PROFILE_DETAIL != '+str(detail)+'\n'
         '#error instrumentation_mode_mismatch\n#endif\n'+
-        ('#if !defined(MEGAMOE_SIM_DFX) || MEGAMOE_SIM_DFX != 1\n#error sim_dfx_disabled\n#endif\n' if mode=='sim' else
-         '#ifdef MEGAMOE_SIM_DFX\n#error sim_dfx_must_be_undefined\n#endif\n')+
+        ('#if !defined(MEGAMOE_PROFILE_BACKEND) || MEGAMOE_PROFILE_BACKEND != 1\n#error sim_backend_disabled\n#endif\n' if mode=='sim' else
+         '#if !defined(MEGAMOE_PROFILE_BACKEND) || MEGAMOE_PROFILE_BACKEND != 0\n#error board_backend_disabled\n#endif\n')+
         ''.join('#define MEGAMOE_COMPILED_'+name+' '+str(value)+'\nstatic_assert('+name+' == '+str(value)+', "compiled profiler ABI mismatch");\n'
         for name,value in [('PROF_N_CORES',abi['cores']),('PROF_AIV_CORES',abi['aiv_cores']),
          ('PROF_SLOTS_PER_CORE',abi['slots_per_core']),('PROF_RECORD_BYTES',16),('PROF_RINGIDX_ALIGN',64)]))
@@ -68,17 +62,17 @@ def begin(recipe, generated, attempt, mode, precision, writer):
     old = '-I'+str(generated.resolve())
     require(flags.count(old) == 1, 'Recipe does not reference selected generated input exactly once')
     flags[flags.index(old)] = '-I'+str(snapshot.resolve())
-    if mode == 'sim':
-        if '-DMEGAMOE_SIM_DFX=1' not in flags:
-            flags.append('-DMEGAMOE_SIM_DFX=1')
+    expected_backend = '-DMEGAMOE_PROFILE_BACKEND='+str(1 if mode == 'sim' else 0)
+    existing_backend = [x for x in flags if x.startswith('-DMEGAMOE_PROFILE_BACKEND=')]
+    if existing_backend:
+        require(existing_backend == [expected_backend], 'Wrong profiling backend in generated recipe')
     else:
-        if '-UMEGAMOE_SIM_DFX' not in flags:
-            flags.append('-UMEGAMOE_SIM_DFX')
+        flags.append(expected_backend)
     flags.extend(['-include', str(guard.resolve())])
     edited = text[:match.start()]+match.group(1)+'custom_compile_options = '+repr(options)+','+text[match.end():]
     recipe.write_text(edited)
     token = dict(schema='megamoe_profiler_build_token_v1', mode=mode, precision=precision,
-                 sim_dfx=(mode == 'sim'),
+                 profile_backend=1 if mode == 'sim' else 0,
                  recipe=str(recipe), recipe_sha256=digest(recipe), writer=str(writer), writer_sha256=digest(writer), writer_guard_verified=True, guard=str(guard),
                  guard_sha256=digest(guard), layout=abi,
                  generated_files={p.name:digest(p) for p in snapshot.iterdir() if p.name != guard.name},
