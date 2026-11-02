@@ -10,6 +10,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 from config_io import load_config
+from execution_contract import execution_evidence, require_remote_simulation
 
 
 def write_json(path, value):
@@ -88,6 +89,7 @@ def main():
     parser.add_argument("--recover", action="store_true",
                         help="Validate an existing capture without rerunning npusim")
     args = parser.parse_args()
+    require_remote_simulation('npusim_execution')
     run = args.run.resolve()
     config = load_config(args.config)
     case_dir = run / "data/inputs"
@@ -128,6 +130,7 @@ def main():
         "archive": str(archive), "returncode": result.returncode,
         "task_done": task_done, "case_dir": str(case_dir), "recovered": args.recover,
         "instruction_records": instruction_records,
+        "execution": execution_evidence('npusim_execution', 'model1'),
     })
     if not task_done:
         raise RuntimeError("No [TASK_DONE] marker found in npusim output")

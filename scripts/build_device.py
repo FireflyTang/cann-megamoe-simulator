@@ -4,6 +4,7 @@ Run after the repository's ascend950 --ophost build, under local-build-env.sh.
 The official generated parameter recipe is selected explicitly, never by shape.
 """
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -14,6 +15,7 @@ import sys
 import time
 
 from build_transaction import BuildTransaction
+from execution_contract import execution_evidence, require_local_build
 
 def compile_spec(precision):
     if precision not in ('w4a8','w8a8'):raise ValueError('Unsupported precision')
@@ -33,32 +35,86 @@ def sha(path):
         return hashlib.file_digest(f, 'sha256').hexdigest()
 
 
+def git_revision(path):
+    result = subprocess.run(['git', '-C', str(path), 'rev-parse', 'HEAD'],
+                            capture_output=True, text=True, check=False)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+def kernel_definitions(values):
+    """Parse caller-owned integer macros and reject duplicates/tool-owned names."""
+    result = {}
+    for value in values:
+        if not re.fullmatch(r'[A-Z][A-Z0-9_]*=-?(?:0|[1-9][0-9]*)', value):
+            raise ValueError('Kernel definition must be NAME=integer')
+        name, number = value.split('=', 1)
+        tool_owned = (name in ('MEGAMOE_PROFILE_DETAIL', 'MEGAMOE_PROFILE_ABI', 'MEGAMOE_SIM_DFX',
+                               'ENABLE_PROFILING') or
+                      name.startswith(('PROF_', 'PROFILE_', 'TILINGKEY_')))
+        if name in result or tool_owned:
+            raise ValueError('Duplicate or tool-owned kernel definition: ' + name)
+        result[name] = int(number)
+    return result
+
+
+def bind_kernel_definitions(recipe, definitions):
+    """Bind caller macros to the private generated compiler recipe."""
+    text = recipe.read_text()
+    matches = list(re.finditer(r'^(\s*)custom_compile_options = (.+),\s*$', text, re.M))
+    if len(matches) != 1:
+        raise ValueError('Expected exactly one private compiler options assignment')
+    match = matches[0]
+    options = ast.literal_eval(match.group(2))
+    if set(options) != {'__ALLSOC__'}:
+        raise ValueError('Unexpected SOC-specific compiler options')
+    flags = options['__ALLSOC__']
+    additions = ['-D'+name+'='+str(value) for name, value in definitions.items()]
+    if any(addition in flags for addition in additions):
+        raise ValueError('Kernel definition already bound')
+    flags.extend(additions)
+    recipe.write_text(text[:match.start()] + match.group(1) +
+                      'custom_compile_options = ' + repr(options) + ',' + text[match.end():])
+    return additions
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--precision',choices=['w4a8','w8a8'],default='w4a8')
     p.add_argument('--mode', choices=['full', 'kernel_only', 'off', 'sim'], required=True)
     p.add_argument('--topk-dtype', choices=['bfloat16','float32'], default='bfloat16')
     p.add_argument('--repo', type=Path, required=True)
+    p.add_argument('--config', type=Path, required=True,
+                   help='MegaMoE JSON5 config used to generate profiler headers')
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--generated', type=Path, required=True)
     p.add_argument('--build-dir', type=Path, required=True, help='Private CMake tree; never reuse another mode build')
+    p.add_argument('--host-jobs', type=int, default=8,
+                   help='Parallel jobs for preparing official host objects')
+    p.add_argument('--cann-cmake', type=Path,
+                   help='Local cann-cmake source; defaults to <repo>/third_party/cann-cmake')
+    p.add_argument('--kernel-definition', action='append', default=[],
+                   help='Caller kernel NAME=integer; recorded in build evidence')
     a = p.parse_args()
+    definitions = kernel_definitions(a.kernel_definition)
+    require_local_build('build_device')
     template,parameter,expected_keys=compile_spec(a.precision)
-    allowed_tang = {
-        Path('/home/t00826093/miniforge3/envs/tang'),
-        Path('/home/t00826093/miniconda3/envs/tang'),
-    }
-    if Path(sys.prefix).resolve() not in allowed_tang:
-        raise RuntimeError('Local or model1 tang is required')
-    repo = args.repo.resolve()
+    repo = a.repo.resolve()
     build, out = a.build_dir.resolve(), a.output.resolve()
     if build.exists():
         raise ValueError('Build directory must be a fresh isolated path')
-    inputs = [repo/'mc2', repo/'common', repo/'include', repo/'megamoe_profile/include', repo/'cmake', repo/'CMakeLists.txt', repo/'scripts']
+    if a.host_jobs < 1:
+        raise ValueError('host-jobs must be positive')
+    config = a.config.resolve()
+    if not config.is_file():
+        raise ValueError('Missing config: '+str(config))
+    stage_header = repo/'megamoe_profile/include/profile_stages.h'
+    if not stage_header.is_file():
+        raise ValueError('Missing profile stage header: '+str(stage_header))
+    inputs = [repo/'mc2', repo/'common', repo/'include', repo/'megamoe_profile/include', repo/'cmake', repo/'CMakeLists.txt', repo/'scripts', config, stage_header]
     # The W4 configure path consumes this shared FetchContent source tree.
-    shared_cmake = repo/'third_party/cann-cmake'
-    if shared_cmake.exists():
-        inputs.append(shared_cmake)
+    shared_cmake = a.cann_cmake.resolve() if a.cann_cmake is not None else repo/'third_party/cann-cmake'
+    if not shared_cmake.is_dir():
+        raise ValueError('Missing local cann-cmake dependency: '+str(shared_cmake))
+    inputs.append(shared_cmake)
     with BuildTransaction(repo, out, generated=a.generated, inputs=inputs) as transaction:
         (out/'bin').mkdir()
         env = dict(os.environ, MEGAMOE_SESSION_PROFILE_MODE=a.mode,
@@ -66,6 +122,9 @@ def main():
                    HI_PYTHON=sys.executable, TILINGKEY_PAR_COMPILE='1', BIN_FILENAME_HASHED='1',
                    ASCEND_CUSTOM_OPP_PATH=str(build/'custom'), ASCEND_PROCESS_LOG_PATH=str(out/'plog'))
         evidence = dict(mode=a.mode, soc='Ascend950PR_957c', precision=a.precision, template_filter=template,
+                        execution=execution_evidence('build_device', 'local'),
+                        cann_cmake=dict(path=str(shared_cmake), revision=git_revision(shared_cmake)),
+                        config=str(config),
                         started_at=time.time(), commands=[], phases={})
         def run(label, command):
             evidence['commands'].append(command)
@@ -74,11 +133,16 @@ def main():
                 transaction.run(command, cwd=repo, env=env, stdout=log, stderr=subprocess.STDOUT, check=True, pass_fds=(transaction.lock_fd,))
             evidence['phases'][label] = time.monotonic()-started
         try:
+            run('generate_profile', [sys.executable, str(Path(__file__).with_name('generate_profile_events.py')),
+                                     '--stages', str(stage_header), '--config', str(config),
+                                     '--output', str(transaction.generated)])
             run('configure', ['cmake','-S',str(repo),'-B',str(build),'-DASCEND_COMPUTE_UNIT=ascend950',
                              '-DENABLE_HOST_TILING=ON', '-DASCEND_OP_NAME=mega_moe', '-DENABLE_OPS_HOST=ON', '-DENABLE_OPS_KERNEL=ON', '-DFETCHCONTENT_SOURCE_DIR_CANN-CMAKE='+str(shared_cmake), '-DKERNEL_TEMPLATE_INPUT='+template])
             run('prepare', ['cmake','--build',str(build),'-j1','--target','generate_compile_cmd',
                             'common_src_copy','mega_moe_apt_ascend950_src_copy',
                             'mega_moe_apt_ascend950_py_copy','generate_ops_info'])
+            run('build_host_objects', ['cmake','--build',str(build),'-j'+str(a.host_jobs),
+                                        '--target','cust_opmaster'])
             recipes = list((build/'binary/ascend950').rglob('MegaMoe-mega_moe_apt-*.sh'))
             if a.topk_dtype=='bfloat16':
                 recipe, = [x for x in recipes if parameter+'_param.json' in x.read_text()]
@@ -121,8 +185,11 @@ def main():
             if not kernel_source.is_file():
                 raise ValueError('Missing copied arch35 kernel source: '+str(kernel_source))
             env['BUILD_KERNEL_SRC'] = str(kernel_source)
+            bound_definitions = bind_kernel_definitions(source, definitions) if definitions else []
             evidence['official_script'] = dict(path=str(recipe), sha256=sha(recipe))
             evidence['selected_script_sha256'] = sha(selected)
+            evidence['kernel_definitions'] = definitions
+            evidence['kernel_definitions_bound'] = bound_definitions
             evidence['sources'] = transaction.record['compile_inputs_sha256']
             evidence['transaction_id'] = transaction.record['attempt_id']
             from build_binding import begin, finish

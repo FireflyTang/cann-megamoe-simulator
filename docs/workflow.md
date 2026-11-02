@@ -32,10 +32,41 @@ stage calls under `MEGAMOE_SIM_DFX`.
 
 ## 1. Build
 
+Build, instrumentation and case generation are local-only.  Use the local
+interpreter:
+
+```text
+/home/t00826093/miniforge3/envs/tang/bin/python
+```
+
+`build_device.py`, `build_host.py` and `case.py` reject the model1 interpreter.
+Never synchronize the MegaMoE source tree to model1 for compilation, and never
+run CMake, the official compile script, or the host bridge build on model1.
+
 Use a fresh build directory.  The scripts refuse to reuse an existing output.
 `build_device.py` performs a fresh configure and compile transaction and writes
 `build_evidence.json`.  `build_host.py` links a private host bridge from the
 official build tree.
+
+`build_device.py` requires `--config <source-repo>/megamoe_profile/...json`.
+It generates `profile_events_generated.h`, `pair_map.json`, `case_config.h`
+and `profiler_config.h` into the fresh `--generated` output before CMake
+configure; the op_host diagnostic contract rejects a build if this preflight is
+skipped.
+
+The same transaction also builds the official `cust_opmaster` host objects that
+`build_host.py` later re-links into the private host bridge.
+
+Research kernel variants must pass caller-owned integer macros with repeated
+`--kernel-definition NAME=INTEGER` arguments.  `build_device.py` validates the
+names, injects them into the private compiler recipe, and records both the
+requested values and the exact compiler flags in `build_evidence.json`.  The
+build is rejected if the generated recipe does not contain the private options
+assignment that can be bound.
+
+If the source tree does not contain `third_party/cann-cmake`, pass its local
+checkout explicitly with `--cann-cmake <path>`.  The path must exist before the
+build transaction starts and is recorded in the build evidence.
 
 A successful build must leave:
 
@@ -57,6 +88,20 @@ generator checks that the kernel image, parameter arrays, IO tensors and
 workspace do not overlap.
 
 ## 3. Simulation
+
+Only this stage runs on model1.  After local case generation:
+
+1. upload `<run>/run` to a fresh remote run path,
+2. ensure the common simulation repository on model1 is at the recorded Git
+   revision,
+3. run `simulate.py` with the model1 `tang` interpreter and
+   `<remote-run>/config.json`,
+4. retrieve the completed run in a compressed transfer,
+5. extract it over the matching local `<run>/run` before local export and
+   analysis.
+
+`simulate.py` rejects the local build interpreter.  It is the only common
+workflow entry that is expected to execute on model1.
 
 `simulate.py`:
 

@@ -56,8 +56,11 @@ not access real NPU hardware, so simulation does not use `qrun`.
 
 - Ascend 950PR / DAV_3510 CANN with `npusim` and `msprof op simulator`.
 - Python `tang` environment:
-  - local: `/home/t00826093/miniforge3/envs/tang/bin/python`
-  - model1: `/home/t00826093/miniconda3/envs/tang/bin/python`
+  - local source/case/build: `/home/t00826093/miniforge3/envs/tang/bin/python`
+  - model1 simulation execution: `/home/t00826093/miniconda3/envs/tang/bin/python`
+- Source checkout, instrumentation changes, case generation and compilation are
+  local-only.  model1 receives a prepared case/run and runs `simulate.py`; it
+  must not compile MegaMoE source.
 - `json5`, `torch`, and `numpy` in the selected `tang` environment.
 - Source CANN environment, for example:
   `/home/t00826093/Ascend/9.2.0-weekly.20260902.01/cann-9.2.0/set_env.sh`.

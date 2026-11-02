@@ -45,7 +45,7 @@ class BuildTransaction:
     def __init__(self, repo, output, *, generated=None, inputs=(), lock_path=DEFAULT_LOCK):
         self.repo = Path(repo).resolve()
         self.output = Path(output).resolve()
-        self.generated_source = Path(generated).resolve() if generated is not None else None
+        self.generated = Path(generated).resolve() if generated is not None else None
         self.inputs = [Path(p).resolve() for p in inputs]
         self.lock_path = Path(lock_path).resolve()
         self._lock = None
@@ -64,18 +64,14 @@ class BuildTransaction:
         fcntl.flock(self._lock.fileno(), fcntl.LOCK_EX)
         try:
             self.output.mkdir(parents=True, exist_ok=False)
+            if self.generated is not None:
+                self.generated.mkdir(parents=True, exist_ok=False)
             self.record.update(acquired_at=time.time(), status='running')
-            roots = self.inputs + ([self.generated_source] if self.generated_source else [])
+            roots = self.inputs
             self._input_state = source_state(roots)
             self.record['compile_inputs_sha256'] = source_identity(roots)
             self.record['input_guard'] = 'device_inode_size_mtime_ctime_before_after'
-            if self.generated_source:
-                self.generated = self.output/'generated'
-                shutil.copytree(self.generated_source, self.generated)
-                self._generated_state = source_state([self.generated])
-            else:
-                self.generated = None
-                self._generated_state = {}
+            self.record['generated_output'] = str(self.generated) if self.generated is not None else None
             # Global CANN/temp caches are not shared by concurrent new attempts.
             values = {'TMPDIR': self.output/'tmp', 'TMP': self.output/'tmp',
                       'TEMP': self.output/'tmp', 'XDG_CACHE_HOME': self.output/'cache',
@@ -99,13 +95,11 @@ class BuildTransaction:
         failure = error
         try:
             if failure is None:
-                roots = self.inputs + ([self.generated_source] if self.generated_source else [])
+                roots = self.inputs
                 if source_state(roots) != self._input_state:
                     failure = RuntimeError('Compile inputs changed during transaction; output rejected')
                 elif any(source_state(roots) != old for roots, old in self._watched):
                     failure = RuntimeError('Generated build intermediates changed during compilation; output rejected')
-                elif self.generated and source_state([self.generated]) != self._generated_state:
-                    failure = RuntimeError('Frozen generated inputs changed during transaction; output rejected')
             self.record.update(status='failed' if failure else 'pass', finished_at=time.time())
             if failure:
                 self.record['error'] = repr(failure)

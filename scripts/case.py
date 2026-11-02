@@ -16,6 +16,7 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 
 from config_io import load_config
+from execution_contract import require_local_build
 from routing import make_routing
 from structured_weights import make_weights
 
@@ -339,6 +340,7 @@ def main():
     parser.add_argument("--kernel", type=Path, required=True)
     parser.add_argument("--stage-header", type=Path, required=True)
     args = parser.parse_args()
+    require_local_build('case_generation')
     result = generate(load_config(args.config), args.run, args.host, args.kernel, args.stage_header)
     print(json.dumps(result, indent=2))
 

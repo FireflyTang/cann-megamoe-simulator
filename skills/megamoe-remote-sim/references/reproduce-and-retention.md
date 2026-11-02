@@ -1,6 +1,6 @@
 # 复现、精简回传与验收
 
-源码真值为本地 `~/sources/ops-transformer-sim`。初始迁移基线是 `b8bb9a7292c7c7635977f3862f13e80999cdbe7e`，每次以该 run 的 `reproduce/snapshot/base_commit.txt` 为准。CANN、当前用户 tang、第三方依赖和 Git 基线是外部前提，不把只含结果的包描述为无环境依赖的完整安装包。
+源码真值是本地 MegaMoE 源码仓，具体路径以 run 记录为准；不得把 model1 上的临时 checkout 当作源码真值。初始迁移基线是 `b8bb9a7292c7c7635977f3862f13e80999cdbe7e`，每次以该 run 的 `reproduce/snapshot/base_commit.txt` 为准。CANN、当前用户 tang、第三方依赖和 Git 基线是外部前提，不把只含结果的包描述为无环境依赖的完整安装包。
 
 ## 三种不同的复现
 
@@ -35,7 +35,7 @@ OUT=/绝对路径/新的离线复现目录
   --run "$RUN" --output "$OUT" --source /绝对路径/恢复的源码 --build
 ```
 
-该模式只重新编译并生成 case，终态为 `prepared`；新内核的执行与数值结论需要使用 `run_remote.py` 创建新的仿真任务。若解释器或记录依赖不存在，报告缺失项，不借用他人环境。
+该模式只重新编译并生成 case，终态为 `prepared`；编译和 case 生成必须在本机完成。新内核的执行需要把 prepared run 上传到 model1，并用公共仓 `simulate.py` 创建新的仿真任务。若解释器或记录依赖不存在，报告缺失项，不借用他人环境。
 
 ## 传输清单
 

@@ -9,6 +9,7 @@ import sys
 import time
 
 from build_transaction import BuildTransaction
+from execution_contract import execution_evidence, require_local_build
 
 
 def digest(path):
@@ -18,17 +19,13 @@ def digest(path):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--repo', required=True, type=Path)
     p.add_argument('--official-build', required=True, type=Path)
     p.add_argument('--output', required=True, type=Path)
     p.add_argument('--precision', choices=['w8a8','w4a8'], default='w8a8')
     p.add_argument('--topk-dtype', choices=['bfloat16','float32'], default='bfloat16')
     args = p.parse_args()
-    allowed_tang = {
-        Path('/home/t00826093/miniforge3/envs/tang'),
-        Path('/home/t00826093/miniconda3/envs/tang'),
-    }
-    if Path(sys.prefix).resolve() not in allowed_tang:
-        raise RuntimeError('Local or model1 tang is required')
+    require_local_build('build_host')
     repo = args.repo.resolve()
     build = args.official_build.resolve()
     out = args.output.resolve()
@@ -59,6 +56,7 @@ def main():
         link_inputs = [(Path(x) if Path(x).is_absolute() else build/x) for x in link[1:] if x.endswith(('.o','.a','.so'))]
         transaction.watch_inputs([build/'CMakeCache.txt', *(p for p in link_inputs if not p.resolve().is_relative_to(out))])
         record = dict(precision=args.precision,topk_weights_dtype=args.topk_dtype,compiler_command=command, link_command=link,
+                      execution=execution_evidence('build_host', 'local'),
                       official_compile_recipe=recipe, started_at=time.time())
         (out/'recipe.json').write_text(json.dumps(record, indent=2)+'\n')
         with (out/'build.log').open('w') as log:
