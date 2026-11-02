@@ -81,6 +81,9 @@ A successful build must leave:
 It writes the task JSON, kernel images, parameter arrays and input tensors.
 It also copies the current `profile_stages.h` into
 `<run>/run/build/profile_stages.h` for provenance.
+`results/analysis/case_identity.json` records the MegaMoE source repository and
+common simulation repository commit plus dirty state; the build evidence's
+per-file hashes remain the authority for dirty source contents.
 
 The generated case uses a `Mc2MoeContext`, not the generic HCCL parameter
 structure.  The context contains per-peer UBMEM base addresses.  The case

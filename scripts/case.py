@@ -7,6 +7,7 @@ import json
 import os
 import shutil
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
@@ -42,6 +43,21 @@ def write_json(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2) + "\n")
+
+
+def git_identity(path):
+    def run(*arguments):
+        result = subprocess.run(
+            ["git", "-C", str(path), *arguments],
+            check=True, text=True, capture_output=True,
+        )
+        return result.stdout.strip()
+
+    return {
+        "path": str(Path(path).resolve()),
+        "commit": run("rev-parse", "HEAD"),
+        "dirty": bool(run("status", "--porcelain")),
+    }
 
 
 def align_up(value, alignment):
@@ -325,6 +341,8 @@ def generate(config, run, host_path, kernel_path, stage_header):
         "tiling_key": tiling_key, "block_dim": block_dim,
         "workspace_bytes": workspace_bytes, "peermem_bytes": host.megamoe_peermem_size(),
         "actual_dedup_mode": actual_mode, "world": world,
+        "source_repository": git_identity(stage_header.parents[2]),
+        "common_repository": git_identity(SCRIPTS.parent),
     })
     return {
         "case_dir": str(inputs), "tiling_key": tiling_key, "block_dim": block_dim,
