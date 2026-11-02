@@ -122,7 +122,8 @@ ssh model1
 cd /home/t00826093/sources/common/megamoe-sim
 /home/t00826093/miniconda3/envs/tang/bin/python scripts/simulate.py \
   --config <remote-run>/config.json \
-  --run <remote-run>
+  --run <remote-run> \
+  --cann-env /home/t00826093/Ascend/9.2.0-weekly.20260902.01/cann-9.2.0/set_env.sh
 ```
 
 Then retrieve the remote run (prefer a compressed transfer), extract it over the

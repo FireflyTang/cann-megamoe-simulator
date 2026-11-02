@@ -103,6 +103,11 @@ Only this stage runs on model1.  After local case generation:
 `simulate.py` rejects the local build interpreter.  It is the only common
 workflow entry that is expected to execute on model1.
 
+The JSON config retains the local CANN build environment.  If model1 uses a
+different CANN installation, pass its `set_env.sh` explicitly to `simulate.py`
+with `--cann-env`; the actual execution path is recorded in
+`results/analysis/capture.json`.
+
 `simulate.py`:
 
 1. copies the simulator model into `<run>/build/toolkit`,

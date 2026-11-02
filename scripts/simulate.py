@@ -86,12 +86,15 @@ def main():
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--npusim", default="npusim")
+    parser.add_argument("--cann-env", type=Path,
+                        help="Remote CANN set_env.sh; defaults to runtime.cann_env from the config")
     parser.add_argument("--recover", action="store_true",
                         help="Validate an existing capture without rerunning npusim")
     args = parser.parse_args()
     require_remote_simulation('npusim_execution')
     run = args.run.resolve()
     config = load_config(args.config)
+    cann_env = str(args.cann_env.resolve()) if args.cann_env is not None else config["runtime"]["cann_env"]
     case_dir = run / "data/inputs"
     output = run / "data/raw/capture"
     log = run / "logs/npusim_record.log"
@@ -100,13 +103,12 @@ def main():
     if args.recover:
         if not output.is_dir():
             raise FileNotFoundError(output)
-        recover_camodel_logs(run, config["runtime"]["cann_env"])
+        recover_camodel_logs(run, cann_env)
         result = argparse.Namespace(returncode=0)
     else:
         if output.exists():
             shutil.rmtree(output)
         output.mkdir(parents=True)
-        cann_env = config["runtime"]["cann_env"]
         local_home = prepare_local_camodel(run, cann_env)
         command = (f"source {cann_env} && export ASCEND_HOME_PATH={local_home} && "
                    f"exec {args.npusim} record -c {case_dir} -o {output} -g")
@@ -122,7 +124,7 @@ def main():
         raise RuntimeError(f"Expected one npusim archive, found {len(archives)}")
     archive = archives[0]
     instruction_records = collect_instruction_records(
-        run, archive, config["runtime"]["cann_env"], config["case"]["ep"]
+        run, archive, cann_env, config["case"]["ep"]
     )
     task_done = find_task_done(archive)
     task_done.update(find_task_done(run / "build/toolkit/tools/simulator/dav_3510/camodel"))
@@ -131,6 +133,7 @@ def main():
         "task_done": task_done, "case_dir": str(case_dir), "recovered": args.recover,
         "instruction_records": instruction_records,
         "execution": execution_evidence('npusim_execution', 'model1'),
+        "cann_env": cann_env,
     })
     if not task_done:
         raise RuntimeError("No [TASK_DONE] marker found in npusim output")
